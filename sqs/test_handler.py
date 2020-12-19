@@ -1,6 +1,6 @@
 import unittest
 import boto3
-from moto import mock_sqs
+from moto import mock_sqs, mock_ses
 import handler
 
 event = {
@@ -82,7 +82,6 @@ event = {
 }
 
 
-
 class TestHandler(unittest.TestCase):
     @mock_sqs
     def test_put_message(self):
@@ -110,6 +109,12 @@ class TestHandler(unittest.TestCase):
         expected_data = {"headers": headers, "statusCode": 200, "body": body}
         result = handler.entry(event, context)
         assert result == expected_data
-        
-    def test_send_email(self):
-       assert True == True
+
+    @mock_ses
+    def test_email_message(self):
+        SES = boto3.client("ses")
+        SES.verify_email_address(EmailAddress="test@example.com")
+        handler.email_message.SES = SES
+        message = "Testing with a valid message"
+        response = handler.email_message(message)
+        assert response["ResponseMetadata"]["HTTPStatusCode"] == 200

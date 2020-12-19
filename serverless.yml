@@ -10,6 +10,8 @@ provider:
   environment:
     SQS_URL:
       Ref: testQueue
+    SENDER_EMAIL: ${opt:send_from, 'foo@bar.com'}
+    SENDTO_EMAIL:  ${opt:send_to, 'bar@foo.com'}
   logRetentionInDays: 5
   iamRoleStatements:
     - Effect: "Allow"
