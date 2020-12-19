@@ -1,0 +1,60 @@
+service: python-sqs-lambda
+
+provider:
+  name: aws
+  runtime: python3.8
+  stage: ${opt:stage, 'dev'}
+  region: ${opt:region, 'us-west-2'}
+  stackTags:
+    billingproject: ${self:service}
+  environment:
+    SQS_URL:
+      Ref: testQueue
+  logRetentionInDays: 5
+  iamRoleStatements:
+    - Effect: "Allow"
+      Action:
+        - "sqs:SendMessage"
+      Resource:
+        Fn::GetAtt: [ testQueue, Arn ]
+    - Effect: 'Allow'
+      Action:
+        - 'ses:SendEmail'
+      Resource: ['*']
+
+package:
+  individually: true
+  exclude:
+    - '*/**'
+
+functions:
+  entry:
+    handler: sqs/handler.entry
+    memorySize: 128
+    package:
+      include:
+        - 'sqs/**'
+    events:
+      - http:
+          method: post
+          path: messsages
+          cors: true
+  send-message:
+    handler: sqs/handler.send_email
+    memorySize: 128
+    package:
+      include:
+        - 'sqs/**'
+    events:
+      - sqs:
+          arn:
+            Fn::GetAtt: [ testQueue, Arn ]
+
+resources:
+  Resources:
+    testQueue:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: ${self:custom.queueName}
+custom:
+  queueName: ${opt:queue, 'python-first-queue'}

@@ -1,0 +1,5 @@
+venv/
+.serverless/
+__pycache__/
+.pytest_cache/
+*.pyc
