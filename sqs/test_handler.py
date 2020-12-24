@@ -3,7 +3,7 @@ import boto3
 from moto import mock_sqs, mock_ses
 import handler
 
-event = {
+API_GW_EVENT = {
     "resource": "/messsages",
     "path": "/messsages",
     "httpMethod": "POST",
@@ -77,21 +77,41 @@ event = {
         "domainName": "abc123.execute-api.us-west-2.amazonaws.com",
         "apiId": "abc123",
     },
-    "body": '{"message":"hi"}',
+    "body": '{"message":"Hello AWS!"}',
     "isBase64Encoded": False,
+}
+SQS_EVENT = {
+    "Records": [
+        {
+            "messageId": "12345678901234567890",
+            "receiptHandle": "12345678901234567890",
+            "body": "Hello AWS!",
+            "attributes": {
+                "ApproximateReceiveCount": "1",
+                "SentTimestamp": "1608790761621",
+                "SenderId": "ABCDEFGHIJKLMNOP:python-sqs-lambda-dev-api_gw_post_message",
+                "ApproximateFirstReceiveTimestamp": "1608790761625",
+            },
+            "messageAttributes": {},
+            "md5OfBody": "11234567890123456789",
+            "eventSource": "aws:sqs",
+            "eventSourceARN": "arn:aws:sqs:us-west-1:1234567890:python-first-queue",
+            "awsRegion": "us-west-1",
+        }
+    ]
 }
 
 
 class TestHandler(unittest.TestCase):
     @mock_sqs
-    def test_put_message(self):
-        SQS = boto3.resource("sqs")
-        queue = SQS.create_queue(QueueName="test-sqs-message")
+    def test_message_to_sqs_queue(self):
+        print("\nRunning test_message_to_sqs_queue")
+        sqs = boto3.resource("sqs")
+        queue = sqs.create_queue(QueueName="test-sqs-message")
         handler.QUEUE_URL = queue.url
         message = "Testing with a valid message"
-        expected_message = {"message": message}
-        expected_message = str(expected_message)
-        handler.put_message(message)
+        expected_message = str(message)
+        handler.message_to_sqs_queue(message)
         sqs_messages = queue.receive_messages()
         assert (
             sqs_messages[0].body == expected_message
@@ -99,22 +119,35 @@ class TestHandler(unittest.TestCase):
         assert len(sqs_messages) == 1, "Expected exactly one message in SQS"
 
     @mock_sqs
-    def test_entry(self):
-        SQS = boto3.resource("sqs")
-        queue = SQS.create_queue(QueueName="test-sqs-message")
+    def test_api_gw_post_message(self):
+        print("\nRunning test_api_gw_post_message")
+        sqs = boto3.resource("sqs")
+        queue = sqs.create_queue(QueueName="test-sqs-message")
         handler.QUEUE_URL = queue.url
         headers = {"Access-Control-Allow-Origin": "*"}
         context = {}
         body = '{"status": "OK"}'
         expected_data = {"headers": headers, "statusCode": 200, "body": body}
-        result = handler.entry(event, context)
+        result = handler.api_gw_post_message(API_GW_EVENT, context)
         assert result == expected_data
 
     @mock_ses
-    def test_email_message(self):
-        SES = boto3.client("ses")
-        SES.verify_email_address(EmailAddress="test@example.com")
-        handler.email_message.SES = SES
+    def test_send_email_ses(self):
+        print("\nRunning test_send_email_ses")
+        ses = boto3.client("ses")
+        ses.verify_email_address(EmailAddress="test@example.com")
+        handler.send_email_ses.ses = ses
         message = "Testing with a valid message"
-        response = handler.email_message(message)
+        response = handler.send_email_ses(message)
         assert response["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    @mock_ses
+    def test_sqs_queue_event_handler(self):
+        print("\nRunning test_sqs_queue_event_handler")
+        ses = boto3.client("ses")
+        ses.verify_email_address(EmailAddress="test@example.com")
+        handler.send_email_ses.ses = ses
+        context = {}
+        expected_result = {"status": "OK"}
+        result = handler.sqs_queue_event_handler(SQS_EVENT, context)
+        assert result == expected_result

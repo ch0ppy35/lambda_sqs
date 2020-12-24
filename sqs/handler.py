@@ -1,54 +1,65 @@
-import boto3
-import os
 import json
+import os
+import boto3
 
 QUEUE_URL = os.getenv("SQS_URL")
 
 
-def entry(event, context):
+def api_gw_post_message(event, context):
     """
-    Entry point, parse event and send message to the sqs queue
+    Receive http PUT from the Api GW. Parse message and place in SQS queue
     """
     message = json.loads(event.get("body")).get("message")
     print(message)
-    put_message(message)
+    message_to_sqs_queue(message)
     headers = {"Access-Control-Allow-Origin": "*"}
     body = '{"status": "OK"}'
     return {"headers": headers, "statusCode": 200, "body": body}
 
 
-def send_email(event, context):
-    """
-    Receive message from sqs event and call email_message
-    """
-    message = json.loads(event.get("body")).get("message")
-    print(email_message(message))
-    return
-
-
-def put_message(message):
+def message_to_sqs_queue(message):
     """
     Takes the message and sends to the sqs queue
+
+    Parameters:
+        message (str): Message to be sent the queue
     """
     try:
-        SQS = boto3.client("sqs")
-        body = {"message": message}
-        body = str(body)
-        print(SQS.send_message(QueueUrl=QUEUE_URL, MessageBody=body))
+        sqs = boto3.client("sqs")
+        # Shows up as - "body": "Hello AWS!" - in the message
+        # This should be done better
+        body = str(message)
+        print(sqs.send_message(QueueUrl=QUEUE_URL, MessageBody=body))
     except Exception:
         raise Exception("Failed to put message in queue!")
 
 
-def email_message(message):
+def sqs_queue_event_handler(event, context):
+    """
+    Triggered via messages in the SQS queue. Parses the queue's message,
+    and grabs our message. We take the message and call send_email_ses(message)
+    """
+    print(event)
+    for record in event["Records"]:
+        message = record.get("body")
+        print(message)
+        print(send_email_ses(message))
+    return {"status": "OK"}
+
+
+def send_email_ses(message):
     """
     Sends the message with ses
+
+    Parameters:
+        message (str): Message to be sent via SES
     """
-    SES = boto3.client("ses")
-    SENDER_EMAIL = os.getenv("SENDER_EMAIL") or "test@example.com"
-    SENDTO_EMAIL = os.getenv("SENDTO_EMAIL") or "test_to@example.com"
-    response = SES.send_email(
+    ses = boto3.client("ses")
+    sender_email = os.getenv("SENDER_EMAIL") or "test@example.com"
+    sendto_email = os.getenv("SENDTO_EMAIL") or "test_to@example.com"
+    response = ses.send_email(
         Destination={
-            "ToAddresses": [SENDTO_EMAIL],
+            "ToAddresses": [sendto_email],
         },
         Message={
             "Body": {
@@ -62,6 +73,6 @@ def email_message(message):
                 "Data": "email subject string",
             },
         },
-        Source=SENDER_EMAIL,
+        Source=sender_email,
     )
     return response

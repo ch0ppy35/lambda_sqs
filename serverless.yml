@@ -1,4 +1,4 @@
-service: python-sqs-lambda
+service: python-sqs-srv
 
 provider:
   name: aws
@@ -30,8 +30,8 @@ package:
     - '*/**'
 
 functions:
-  entry:
-    handler: sqs/handler.entry
+  api_gw_post_message:
+    handler: sqs/handler.api_gw_post_message
     memorySize: 128
     package:
       include:
@@ -41,8 +41,8 @@ functions:
           method: post
           path: messsages
           cors: true
-  send-message:
-    handler: sqs/handler.send_email
+  sqs_message_handler:
+    handler: sqs/handler.sqs_queue_event_handler
     memorySize: 128
     package:
       include:
