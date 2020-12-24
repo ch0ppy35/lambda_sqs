@@ -118,6 +118,13 @@ class TestHandler(unittest.TestCase):
         ), "Message does not match expected"
         assert len(sqs_messages) == 1, "Expected exactly one message in SQS"
 
+    def test_message_to_sqs_queue_exception(self):
+        print("\nRunning test_message_to_sqs_queue_exception")
+        queue = None
+        handler.QUEUE_URL = queue
+        message = None
+        self.assertRaises(Exception, handler.message_to_sqs_queue, message)
+
     @mock_sqs
     def test_api_gw_post_message(self):
         print("\nRunning test_api_gw_post_message")
