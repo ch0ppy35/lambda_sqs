@@ -39,7 +39,7 @@ functions:
     events:
       - http:
           method: post
-          path: messsages
+          path: messages
           cors: true
   sqs_message_handler:
     handler: sqs/handler.sqs_queue_event_handler
